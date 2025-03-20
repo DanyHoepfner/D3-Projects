@@ -36,6 +36,7 @@ async function draw() {
       "transform",
       `translate(${dimensions.margin.left}, ${dimensions.margin.top})`
     );
+  const tooltip = d3.select("#tooltip");
 
   // Returns scaling functions under the hood
   const xScale = d3
@@ -91,6 +92,53 @@ async function draw() {
     .attr("fill", "black")
     .text("Temperature °F")
     .style("text-anchor", "middle");
+
+  const delanunay = d3.Delaunay.from(
+    dataset,
+    (d) => xScale(xAccessor(d)),
+    (d) => yScale(yAccessor(d))
+  );
+
+  const voronoi = delanunay.voronoi();
+  voronoi.xmax = containerWidth;
+  voronoi.ymax = containerHeight;
+
+  ctr
+    .append("g")
+    .selectAll("path")
+    .data(dataset)
+    .join("path")
+    .attr("stroke", "black")
+    .attr("fill", "transparent")
+    .attr("d", (d, i) => voronoi.renderCell(i))
+    .on("mouseenter", function (event, datum) {
+      ctr
+        .append("circle")
+        .classed("dot-hovered", true)
+        .attr("cx", (d) => xScale(xAccessor(datum)))
+        .attr("cy", (d) => yScale(yAccessor(datum)))
+        .attr("r", dimensions.dotSize)
+        .attr("fill", "blue")
+        .style("pointer-events", "none");
+
+      tooltip
+        .style("display", "block")
+        .style("top", yScale(yAccessor(datum)) - 20 + "px")
+        .style("left", xScale(xAccessor(datum)) + 15 + "px");
+
+      const formatter = d3.format(".1f");
+      const timeformatter = d3.timeFormat("%b %d, %Y");
+      tooltip.select(".metric-humidity span").text(formatter(xAccessor(datum)));
+      tooltip.select(".metric-temp span").text(formatter(yAccessor(datum)));
+      tooltip
+        .select(".metric-date")
+        .text(timeformatter(datum.currently.time * 1000));
+    })
+    .on("mouseleave", function (event) {
+      ctr.select(".dot-hovered").remove();
+
+      tooltip.style("display", "none");
+    });
 }
 
 draw();
